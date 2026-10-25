@@ -67,6 +67,9 @@ jobs:
             echo "No changes to private reference files."
           else
             git -C private-results commit -m "Save verified-byte original CG references and private bios previews"
+            # A long extraction can overlap other private report updates.
+            # Incorporate concurrent report-only commits without a force push.
+            git -C private-results pull --rebase origin main
             git -C private-results push origin main
             echo "Private export committed (no public artifacts)."
           fi
