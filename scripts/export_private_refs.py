@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# 2026-10-25: produce low-bandwidth PRIVATE previews of SHA-verified originals for size-safe visual audit.
 # 2026-10-25: queue refresh for 17 identity/angle verification originals (private-only export).
 # 2026-10-25: include additional bios-matched private reference candidates (v3) using rebase-safe runner.
 """Private-only full-resolution exports and labeled bios contact sheets.
@@ -24,6 +25,7 @@ ARCHIVES = ROOT / "archives"
 EXTRACTED = ROOT / "extracted" / "archive_001"
 PRIVATE = ROOT / "private-results"
 OUTPUT = PRIVATE / "generated" / "cgv1"
+PREVIEWS = OUTPUT / "selected_previews"  # small PRIVATE copies for connector review
 BIOS = PRIVATE / "generated" / "cgv2"
 ALLOWED = {"Annie", "Luna", "Nova", "Alexandra", "Dalia", "Penelope", "Nancy", "Calypso"}
 IMAGE_EXT = {".jpg", ".jpeg", ".png", ".webp", ".bmp"}
@@ -60,6 +62,7 @@ def export_originals():
     if not requested:
         raise RuntimeError("Empty private export request")
     result = []
+    preview_count = 0
     for selection in requested:
         key = int(selection["image_id"])
         char = selection["character"]
@@ -81,6 +84,16 @@ def export_originals():
         dest = PRIVATE / dest_rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(path, dest)
+        # The GitHub connector sometimes cannot display larger full-res JPGs.
+        # Create a smaller VIEWING copy for each verified export, PRIVATE only.
+        # Full-resolution originals remain unchanged for detailed assessment.
+        preview_dest = PREVIEWS / char / ("cg_" + str(key).zfill(5) + ".jpg")
+        preview_dest.parent.mkdir(parents=True, exist_ok=True)
+        with Image.open(path) as full:
+            view = ImageOps.exif_transpose(full)
+            view.thumbnail((960, 540))
+            view.convert("RGB").save(preview_dest, format="JPEG", quality=78, optimize=True)
+        preview_count += 1
         result.append({
             "image_id": key, "character": char,
             "original_source_path": row["source_path"], "private_output_path": dest_rel.as_posix(),
@@ -95,6 +108,7 @@ def export_originals():
         writer.writeheader()
         writer.writerows(result)
     print("Original-resolution assets verified and saved to PRIVATE clone:", len(result))
+    print("Low-bandwidth PRIVATE review previews:", preview_count)
 
 
 def font(size):
