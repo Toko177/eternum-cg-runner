@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# 2026-10-25: trigger privacy-guarded Luna swimsuit provisional identification originals (5 frames).
 # 2026-10-25: private-only follow-up export for biography-matched Dalia gym reference candidates.
 # 2026-10-25: queue refresh for user-confirmed Nova/Nancy scene clusters; private-only SHA-checked originals.
 # 2026-10-25: produce low-bandwidth PRIVATE previews of SHA-verified originals for size-safe visual audit.
