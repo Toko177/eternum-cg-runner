@@ -1,0 +1,72 @@
+name: Export CG references to private repository
+
+# PUBLIC runner: NO images, archives, previews, or artifacts are published here.
+# Results are written only to the already-PRIVATE analysis repository.
+on:
+  push:
+    paths:
+      - 'scripts/export_private_refs.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: private-cg-reference-export
+  cancel-in-progress: false
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install image and archive tools
+        run: |
+          set -euo pipefail
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /usr/local/share/powershell /opt/hostedtoolcache/CodeQL
+          sudo apt-get update -qq
+          sudo apt-get install -y p7zip-full
+          python -m pip install Pillow
+      - name: Check credential, privacy, and clone private project
+        env:
+          GH_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN" || { echo "::error::Missing private-repo credential"; exit 1; }
+          test "$(gh api repos/Toko177/eternum-cg-analysis --jq '.private')" = "true" || { echo "::error::Refusing nonprivate output"; exit 1; }
+          gh auth setup-git
+          gh repo clone Toko177/eternum-cg-analysis private-results -- --depth=1
+      - name: Download private sources and character bios
+        env:
+          GH_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p archives
+          gh release download cgv1 --repo Toko177/eternum-cg-analysis --dir archives --pattern 'images.7z.*'
+          test "$(find archives -maxdepth 1 -type f -name 'images.7z.*' | wc -l)" -eq 9
+          gh release download cgv2 --repo Toko177/eternum-cg-analysis --dir archives --pattern 'bios.zip'
+          test -s archives/bios.zip
+      - name: Extract locally and write only to private working clone
+        run: |
+          set -euo pipefail
+          python scripts/export_private_refs.py
+      - name: Commit selected originals and bios previews to PRIVATE repository only
+        env:
+          GH_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          test "$(gh api repos/Toko177/eternum-cg-analysis --jq '.private')" = "true" || { echo "::error::Refusing nonprivate output"; exit 1; }
+          git -C private-results config user.name "github-actions[bot]"
+          git -C private-results config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C private-results add generated/cgv1/selected_originals generated/cgv1/selection_export_index.csv generated/cgv2
+          if git -C private-results diff --cached --quiet; then
+            echo "No changes to private reference files."
+          else
+            git -C private-results commit -m "Save verified-byte original CG references and private bios previews"
+            git -C private-results push origin main
+            echo "Private export committed (no public artifacts)."
+          fi
