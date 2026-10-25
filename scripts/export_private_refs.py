@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# 2026-10-25: queue refresh for user-confirmed Nova/Nancy scene clusters; private-only SHA-checked originals.
 # 2026-10-25: produce low-bandwidth PRIVATE previews of SHA-verified originals for size-safe visual audit.
 # 2026-10-25: queue refresh for 17 identity/angle verification originals (private-only export).
 # 2026-10-25: include additional bios-matched private reference candidates (v3) using rebase-safe runner.
