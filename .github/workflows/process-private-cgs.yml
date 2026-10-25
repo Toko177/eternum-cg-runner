@@ -1,0 +1,99 @@
+name: Process private CG archive
+
+# This workflow belongs in the PUBLIC runner repository.
+# It downloads the private cgv1 release and commits contact sheets ONLY
+# to Toko177/eternum-cg-analysis (PRIVATE), not to this public repository.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: private-cg-index
+  cancel-in-progress: false
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Checkout public indexing code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies and check disk space
+        run: |
+          set -euo pipefail
+          # These preinstalled SDKs are not needed for image indexing.
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /usr/local/share/powershell /opt/hostedtoolcache/CodeQL
+          sudo apt-get update -qq
+          sudo apt-get install -y p7zip-full
+          python -m pip install Pillow
+          df -h .
+
+      - name: Verify private repository credential
+        env:
+          PRIVATE_REPO_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: |
+          if [[ -z "$PRIVATE_REPO_TOKEN" ]]; then
+            echo "::error::Missing repository secret PRIVATE_REPO_TOKEN"
+            exit 1
+          fi
+
+      - name: Download all nine encrypted-access private release parts
+        env:
+          GH_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p archives
+          gh release download cgv1 \
+            --repo Toko177/eternum-cg-analysis \
+            --dir archives \
+            --pattern 'images.7z.*'
+          count=$(find archives -maxdepth 1 -type f -name 'images.7z.*' | wc -l)
+          echo "Downloaded archive parts: $count"
+          test "$count" -eq 9 || {
+            echo "::error::Expected all nine archive parts."
+            exit 1
+          }
+          df -h .
+
+      - name: Verify private output destination
+        env:
+          GH_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          visibility=$(gh api repos/Toko177/eternum-cg-analysis --jq '.private')
+          if [[ "$visibility" != "true" ]]; then
+            echo "::error::Private output repository is not private; refusing to proceed."
+            exit 1
+          fi
+
+      - name: Extract and index images
+        run: |
+          set -euo pipefail
+          python scripts/make_contact_sheets.py
+          df -h .
+
+      - name: Commit contact sheets and index to PRIVATE repository
+        env:
+          GH_TOKEN: ${{ secrets.PRIVATE_REPO_TOKEN }}
+        run: |
+          set -euo pipefail
+          gh auth setup-git
+          gh repo clone Toko177/eternum-cg-analysis private-results -- --depth=1
+          folder="private-results/generated/cgv1"
+          mkdir -p "$folder"
+          cp -R output/contact_sheets "$folder/"
+          cp output/image_index.csv output/summary.json output/README.txt "$folder/"
+          git -C private-results config user.name "github-actions[bot]"
+          git -C private-results config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git -C private-results add generated/cgv1
+          git -C private-results commit -m "Add private CG contact sheets and image inventory"
+          git -C private-results push origin main
+          echo "Saved indexed contact sheets to the private repository."
