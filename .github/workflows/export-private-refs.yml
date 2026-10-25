@@ -68,8 +68,20 @@ jobs:
           else
             git -C private-results commit -m "Save verified-byte original CG references and private bios previews"
             # A long extraction can overlap other private report updates.
-            # Incorporate concurrent report-only commits without a force push.
-            git -C private-results pull --rebase origin main
-            git -C private-results push origin main
+            # Retry a safe rebase/push if main advances between fetch and push.
+            # Never force push or send assets to this public code-only runner.
+            push_succeeded=0
+            for attempt in 1 2 3 4 5 6 7 8; do
+              test "$(gh api repos/Toko177/eternum-cg-analysis --jq '.private')" = "true" || { echo "::error::Refusing nonprivate output"; exit 1; }
+              git -C private-results fetch origin main
+              git -C private-results rebase origin/main
+              if git -C private-results push origin HEAD:main; then
+                push_succeeded=1
+                break
+              fi
+              echo "::warning::Private main advanced concurrently; safe push retry $attempt/8"
+              sleep 3
+            done
+            test "$push_succeeded" -eq 1 || { echo "::error::Could not safely push to private main"; exit 1; }
             echo "Private export committed (no public artifacts)."
           fi
