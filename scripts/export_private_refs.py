@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# 2026-10-25: queue refresh for 17 identity/angle verification originals (private-only export).
 # 2026-10-25: include additional bios-matched private reference candidates (v3) using rebase-safe runner.
 """Private-only full-resolution exports and labeled bios contact sheets.
 
