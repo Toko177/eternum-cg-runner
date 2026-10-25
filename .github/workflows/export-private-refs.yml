@@ -62,7 +62,7 @@ jobs:
           test "$(gh api repos/Toko177/eternum-cg-analysis --jq '.private')" = "true" || { echo "::error::Refusing nonprivate output"; exit 1; }
           git -C private-results config user.name "github-actions[bot]"
           git -C private-results config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git -C private-results add generated/cgv1/selected_originals generated/cgv1/selection_export_index.csv generated/cgv2
+          git -C private-results add generated/cgv1/selected_originals generated/cgv1/selected_previews generated/cgv1/selection_export_index.csv generated/cgv2
           if git -C private-results diff --cached --quiet; then
             echo "No changes to private reference files."
           else
