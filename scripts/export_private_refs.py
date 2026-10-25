@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# 2026-10-25: include additional bios-matched private reference candidates (v2).
 """Private-only full-resolution exports and labeled bios contact sheets.
 
 This source runs in a public code-only runner. All source bytes are fetched
